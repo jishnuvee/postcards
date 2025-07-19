@@ -2,6 +2,19 @@
 title: "Voting and Postcards"
 author: "Jishnu Veerapaneni"
 format: html
+execute: 
+  echo: false
 ---
 
 
+
+```{r}
+#| message: false
+#| warning: false
+library(tidyverse) 
+library(primer.data)
+```
+
+We aim to examine the previous voter behavior from the 2006 Michigan Primary election and apply it to present day Texas elections, to win the selection in Texas using the outcome variables as whether or not registered voters had voted or not in the 2006 Michigan primary election, furthermore,  we considered age as a covariate.
+
+Our data source is the 2006 Michigan Primary and we attempt to find out the causal effect of receiving a postcard on the probability that a registered voter participates in the 2006 Michigan primary election.
