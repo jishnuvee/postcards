@@ -13,8 +13,164 @@ execute:
 #| warning: false
 library(tidyverse) 
 library(primer.data)
+library(tidymodels) 
+library(marginaleffects)
 ```
 
-We aim to examine the previous voter behavior from the 2006 Michigan Primary election and apply it to present day Texas elections, to win the selection in Texas using the outcome variables as whether or not registered voters had voted or not in the 2006 Michigan primary election, furthermore,  we considered age as a covariate.
 
-Our data source is the 2006 Michigan Primary and we attempt to find out the causal effect of receiving a postcard on the probability that a registered voter participates in the 2006 Michigan primary election.
+
+
+
+```{r}
+x <- shaming |> 
+  mutate(civ_engage = primary_00 + primary_02 + primary_04 + 
+               general_00 + general_02 + general_04) |> 
+  select(primary_06, treatment, sex, age, civ_engage) |> 
+  mutate(voter_class = factor(
+    case_when(
+      civ_engage %in% c(5, 6) ~ "Always Vote",
+      civ_engage %in% c(3, 4) ~ "Sometimes Vote",
+      civ_engage %in% c(1, 2) ~ "Rarely Vote"),
+         levels = c("Rarely Vote", 
+                    "Sometimes Vote", 
+                    "Always Vote"))) |>
+  mutate(voted = as.factor(primary_06))
+
+fit_vote <- logistic_reg(engine = "glm") |>
+  fit(voted ~ age + sex + treatment * voter_class, data = x)
+```
+
+
+
+
+```{r}
+#| cache: true
+fit_vote <- glm( 
+  formula = voted ~ age + sex + treatment + voter_class,
+  family = binomial,
+  data = x
+)
+```
+
+
+
+
+
+
+```{r}
+# Load required packages
+library(ggplot2)
+library(dplyr)
+
+# Create data frame from the provided output
+data <- data.frame(
+  rowid = 1:15,
+  estimate = c(0.2939389, 0.1521655, 0.4733928, 0.3012367, 0.1567247, 
+               0.4821038, 0.2753863, 0.1407771, 0.4507444, 0.3246236, 
+               0.1716482, 0.5092981, 0.3587605, 0.1943271, 0.5471228),
+  conf.low = c(0.2889241, 0.1476136, 0.4668497, 0.2961845, 0.1520685, 
+               0.4755768, 0.2726287, 0.1372353, 0.4464929, 0.3194291, 
+               0.1666871, 0.5028227, 0.3534039, 0.1889110, 0.5407513),
+  conf.high = c(0.2989538, 0.1567174, 0.4799360, 0.3062889, 0.1613809, 
+                0.4886309, 0.2781440, 0.1443189, 0.4549960, 0.3298181, 
+                0.1766093, 0.5157735, 0.3641171, 0.1997432, 0.5534943),
+  treatment = c("Civic Duty", "Civic Duty", "Civic Duty", "Hawthorne", 
+                "Hawthorne", "Hawthorne", "No Postcard", "No Postcard", 
+                "No Postcard", "Self", "Self", "Self", "Neighbors", 
+                "Neighbors", "Neighbors"),
+  voter_class = c("Sometimes Vote", "Rarely Vote", "Always Vote", 
+                  "Sometimes Vote", "Rarely Vote", "Always Vote", 
+                  "Sometimes Vote", "Rarely Vote", "Always Vote", 
+                  "Sometimes Vote", "Rarely Vote", "Always Vote", 
+                  "Sometimes Vote", "Rarely Vote", "Always Vote")
+)
+
+# Create the plot
+ggplot(data, aes(x = voter_class, y = estimate, fill = treatment)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.4), 
+           color = "black", width = 0.4) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), 
+                position = position_dodge(width = 0.4), width = 0.2) +
+  labs(
+    title = "Voting Probability by Treatment and Voter Class",
+    subtitle = "Social pressure (Neighbors) significantly boosts voting likelihood, especially for frequent voters.",
+    caption = "Data source: Predicted probabilities from logistic regression model (fit_vote).",
+    x = "Voter Class",
+    y = "Predicted Voting Probability"
+  ) +
+  scale_fill_manual(values = c("Civic Duty" = "#1b9e77", 
+                              "Hawthorne" = "#d95f02", 
+                              "No Postcard" = "#7570b3", 
+                              "Self" = "#e7298a", 
+                              "Neighbors" = "#66a61e")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    plot.caption = element_text(hjust = 0, size = 10),
+    axis.title = element_text(size = 12, face = "bold"),
+    axis.text = element_text(size = 10),
+    legend.position = "top",
+    legend.title = element_text(size = 10, face = "bold"),
+    legend.text = element_text(size = 9)
+  )
+```
+
+
+We aim to examine the previous voter behavior from the 2006 Michigan Primary election and apply it to present day Texas elections, to win the selection in Texas using the outcome variables as whether or not registered voters had voted or not in the 2006 Michigan primary election, furthermore,  we considered age as a covariate. Our data source is the 2006 Michigan Primary and we attempt to find out the causal effect of receiving a postcard on the probability that a registered voter participates in the 2006 Michigan primary election.A potential weakness of our model is that there is time gap between 2006 and present day and as such the effect of receiving a postcard on voting and the populations themselves may change over time. We model voter turnout, whether or not a registered voter, voted in the 2006 Michigan primary, as a logistic function of postcard treatment, voter engagement (including interaction effects), sex, and age to determine how different mailings influence participation across voter types. The "Neighbors" treatment increases the predicted voting probability for "Always Vote" individuals to 0.547, with a 95% confidence interval of 0.541 to 0.553, indicating a consistent effect of social pressure compared to the "No Postcard" baseline probability of 0.451 (95% CI: 0.446 to 0.455).
+
+
+$$
+P(Y = 1) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 X_1 + \beta_2 X_2 + \cdots + \beta_n X_n)}}
+$$
+
+$$
+Y \sim \text{Bernoulli}(\rho)
+$$
+
+
+
+This is my data generating mechanism : 
+ $$
+\begin{aligned}
+\text{logit}(P(\text{voted} = 1))\ \hat{=}\ 
+& -2.43 +\ 0.012 \cdot \text{age} +\ 0.036 \cdot \text{sex}_{\text{Male}} \\
+& +\ 0.086 \cdot \text{treatment}_{\text{Civic Duty}} +\ 0.071 \cdot \text{treatment}_{\text{Hawthorne}} \\
+& +\ 0.202 \cdot \text{treatment}_{\text{Self}} +\ 0.359 \cdot \text{treatment}_{\text{Neighbors}} \\
+& +\ 0.820 \cdot \text{voter\_class}_{\text{Sometimes Vote}} +\ 1.609 \cdot \text{voter\_class}_{\text{Always Vote}}
+\end{aligned}
+$$
+
+
+
+
+```{r}
+#| warning: false
+#| message: false
+#| cache: false
+library(broom)
+library(gt)
+
+# Tidy the model and create a confidence interval column
+tidy_vote <- tidy(fit_vote, conf.int = TRUE) |>
+  select(term, estimate, conf.low, conf.high) |>
+  mutate(across(estimate:conf.high, round, 3))
+
+# Create a nice table
+tidy_vote |> 
+  gt() |> 
+  cols_label(
+    term = "Variable",
+    estimate = "Estimate",
+    conf.low = "Lower 95% CI",
+    conf.high = "Upper 95% CI"
+  ) |> 
+  tab_header(
+    title = "Logistic Regression Estimates",
+    subtitle = "Predicting Probability of Voting"
+  )
+```
+
+
+
+
